@@ -1,13 +1,15 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Context, Result};
 use hyper::StatusCode;
 use hyper::{Body, Request, Response, Uri};
-use pageserver_api::models::DownloadRemoteLayersTaskSpawnRequest;
+use pageserver_api::models::{ChangeLogLevelRequest, DownloadRemoteLayersTaskSpawnRequest};
 use remote_storage::GenericRemoteStorage;
 use tokio_util::sync::CancellationToken;
 use tracing::*;
+use utils::logging::LogReloadHandle;
 
+use super::log_reload::LogFilterManager;
 use super::models::{
     StatusResponse, TenantConfigRequest, TenantCreateRequest, TenantCreateResponse, TenantInfo,
     TimelineCreateRequest, TimelineInfo,
@@ -38,6 +40,7 @@ struct State {
     auth: Option<Arc<JwtAuth>>,
     allowlist_routes: Vec<Uri>,
     remote_storage: Option<GenericRemoteStorage>,
+    log_filter_manager: Mutex<LogFilterManager>,
 }
 
 impl State {
@@ -45,6 +48,7 @@ impl State {
         conf: &'static PageServerConf,
         auth: Option<Arc<JwtAuth>>,
         remote_storage: Option<GenericRemoteStorage>,
+        log_reload_handle: LogReloadHandle,
     ) -> anyhow::Result<Self> {
         let allowlist_routes = ["/v1/status", "/v1/doc", "/swagger.yml"]
             .iter()
@@ -55,6 +59,7 @@ impl State {
             auth,
             allowlist_routes,
             remote_storage,
+            log_filter_manager: Mutex::new(LogFilterManager::new(log_reload_handle)),
         })
     }
 }
@@ -705,6 +710,47 @@ async fn tenant_config_handler(mut request: Request<Body>) -> Result<Response<Bo
     json_response(StatusCode::OK, ())
 }
 
+async fn get_log_filter_handler(request: Request<Body>) -> Result<Response<Body>, ApiError> {
+    let state = get_state(&request);
+    let log_filter_string = state
+        .log_filter_manager
+        .lock()
+        .unwrap()
+        .current_log_filter()
+        .to_string();
+    json_response(StatusCode::OK, log_filter_string)
+}
+
+async fn set_log_filter_handler(mut request: Request<Body>) -> Result<Response<Body>, ApiError> {
+    let request_data: ChangeLogLevelRequest = json_request(&mut request).await?;
+
+    let state = get_state(&request);
+    let update_happened = state
+        .log_filter_manager
+        .lock()
+        .unwrap()
+        .update_filter(request_data)
+        .context("log filter update")
+        .map_err(ApiError::InternalServerError)?;
+
+    if update_happened {
+        json_response(StatusCode::CREATED, ())
+    } else {
+        json_response(StatusCode::OK, ())
+    }
+}
+
+async fn reset_log_filter_handler(request: Request<Body>) -> Result<Response<Body>, ApiError> {
+    let state = get_state(&request);
+    state
+        .log_filter_manager
+        .lock()
+        .unwrap()
+        .reset_log_filter()
+        .map_err(ApiError::InternalServerError)?;
+    json_response(StatusCode::OK, ())
+}
+
 #[cfg(feature = "testing")]
 async fn failpoints_handler(mut request: Request<Body>) -> Result<Response<Body>, ApiError> {
     if !fail::has_failpoints() {
@@ -854,6 +900,7 @@ pub fn make_router(
     conf: &'static PageServerConf,
     auth: Option<Arc<JwtAuth>>,
     remote_storage: Option<GenericRemoteStorage>,
+    log_reload_handle: LogReloadHandle,
 ) -> anyhow::Result<RouterBuilder<hyper::Body, ApiError>> {
     let spec = include_bytes!("openapi_spec.yml");
     let mut router = attach_openapi_ui(endpoint::make_router(), spec, "/swagger.yml", "/v1/doc");
@@ -889,13 +936,17 @@ pub fn make_router(
 
     Ok(router
         .data(Arc::new(
-            State::new(conf, auth, remote_storage).context("Failed to initialize router state")?,
+            State::new(conf, auth, remote_storage, log_reload_handle)
+                .context("Failed to initialize router state")?,
         ))
         .get("/v1/status", status_handler)
         .put(
             "/v1/failpoints",
             testing_api!("manage failpoints", failpoints_handler),
         )
+        .get("/v1/log_filter", get_log_filter_handler)
+        .put("/v1/log_filter", set_log_filter_handler)
+        .post("/v1/reset_log_filter", reset_log_filter_handler)
         .get("/v1/tenant", tenant_list_handler)
         .post("/v1/tenant", tenant_create_handler)
         .get("/v1/tenant/:tenant_id", tenant_status)

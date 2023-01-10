@@ -201,7 +201,7 @@ fn initialize_config(
 
 fn start_pageserver(conf: &'static PageServerConf) -> anyhow::Result<()> {
     // Initialize logging
-    logging::init(conf.log_format)?;
+    let reload_handle = logging::init(conf.log_format);
 
     // Print version to the log, and expose it as a prometheus metric too.
     info!("version: {}", version());
@@ -303,7 +303,7 @@ fn start_pageserver(conf: &'static PageServerConf) -> anyhow::Result<()> {
     {
         let _rt_guard = MGMT_REQUEST_RUNTIME.enter();
 
-        let router = http::make_router(conf, auth.clone(), remote_storage)?
+        let router = http::make_router(conf, auth.clone(), remote_storage, reload_handle)?
             .build()
             .map_err(|err| anyhow!(err))?;
         let service = utils::http::RouterService::new(router).unwrap();
