@@ -41,6 +41,8 @@ use opentelemetry_otlp::{OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_TRACES_
 
 pub use tracing_opentelemetry::OpenTelemetryLayer;
 
+pub mod http;
+
 ///
 /// Set up OpenTelemetry exporter, using configuration from environment variables.
 /// `service_name` is set as the OpenTelemetry 'service.name' resource (see
