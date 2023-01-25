@@ -5,6 +5,7 @@
 use hyper::HeaderMap;
 use hyper::{Body, Request, Response};
 use std::future::Future;
+use tracing::Instrument;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 /// Configuration option for what to use as the "otel.name" field in the traces.
@@ -42,8 +43,8 @@ where
     F: Fn(Request<Body>) -> R,
     R: Future<Output = Response<Body>>,
 {
-    // Start a tracing span, with context propagated from the incoming request
-    // request if any.
+    // Create a tracing span, with context propagated from the incoming
+    // request request if any.
     //
     // See list of standard fields defined for HTTP requests at
     // https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md
@@ -61,10 +62,9 @@ where
     );
     let parent_ctx = extract_remote_context(req.headers());
     span.set_parent(parent_ctx);
-    let _ = span.enter();
 
-    // Handle the request
-    let response = handler(req).await;
+    // Handle the request within the span
+    let response = handler(req).instrument(span.clone()).await;
 
     // Fill in the fields from the response code
     let status = response.status();
