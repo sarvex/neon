@@ -336,8 +336,8 @@ def test_tenant_upgrades_index_json_from_v0(
 
     only_new_metadata = index_part["layer_metadata"][one_new_layer]
 
-    assert (
-        set(only_new_metadata.keys()).symmetric_difference(all_metadata_keys) == set()
+    assert not set(only_new_metadata.keys()).symmetric_difference(
+        all_metadata_keys
     ), "new layer metadata has same metadata as others"
 
 
@@ -415,7 +415,7 @@ def test_tenant_ignores_backup_file(
     # the .old file is gone from newly serialized index_part
     new_index_part = local_fs_index_part(env, tenant_id, timeline_id)
     backup_layers = filter(lambda x: x.endswith(".old"), new_index_part["timeline_layers"])
-    assert len(list(backup_layers)) == 0
+    assert not list(backup_layers)
 
 
 @pytest.mark.parametrize("remote_storage_kind", [RemoteStorageKind.LOCAL_FS])

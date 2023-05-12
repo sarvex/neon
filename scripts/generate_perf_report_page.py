@@ -83,25 +83,35 @@ def format_ratio(ratio: float, report: str) -> Tuple[str, str]:
     if report == "test_param":
         return f"{ratio:.2f}", color
 
-    if ratio > 0:
-        if report == "higher_is_better":
-            color = POSITIVE_COLOR
-        elif report == "lower_is_better":
-            color = NEGATIVE_COLOR
-    elif ratio < 0:
-        if report == "higher_is_better":
-            color = NEGATIVE_COLOR
-        elif report == "lower_is_better":
-            color = POSITIVE_COLOR
-
+    if (
+        ratio > 0
+        and report == "higher_is_better"
+        or ratio <= 0
+        and ratio < 0
+        and report != "higher_is_better"
+        and report == "lower_is_better"
+    ):
+        color = POSITIVE_COLOR
+    elif (
+        ratio > 0
+        and report == "lower_is_better"
+        or ratio <= 0
+        and ratio < 0
+        and report == "higher_is_better"
+    ):
+        color = NEGATIVE_COLOR
     return f"&nbsp({sign}{ratio:.2f})", color
 
 
 def extract_value(name: str, suit_run: SuitRun) -> Optional[Dict[str, Any]]:
-    for item in suit_run.values["data"]:
-        if item["name"] == name:
-            return cast(Dict[str, Any], item)
-    return None
+    return next(
+        (
+            cast(Dict[str, Any], item)
+            for item in suit_run.values["data"]
+            if item["name"] == name
+        ),
+        None,
+    )
 
 
 def get_row_values(
@@ -165,7 +175,7 @@ def main(args: argparse.Namespace) -> None:
         revision = run_data["revision"]
 
         for suit_result in run_data["result"]:
-            key = "{}{}".format(run_data["platform"], suit_result["suit"])
+            key = f'{run_data["platform"]}{suit_result["suit"]}'
             # pack total duration as a synthetic value
             total_duration = suit_result["total_duration"]
             suit_result["data"].append(

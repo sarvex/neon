@@ -93,11 +93,8 @@ def get_dir_size(path: str) -> int:
     totalbytes = 0
     for root, dirs, files in os.walk(path):
         for name in files:
-            try:
+            with contextlib.suppress(FileNotFoundError):
                 totalbytes += os.path.getsize(os.path.join(root, name))
-            except FileNotFoundError:
-                pass  # file could be concurrently removed
-
     return totalbytes
 
 
@@ -234,4 +231,4 @@ def wait_until(number_of_iterations: int, interval: float, func: Fn):
             time.sleep(interval)
             continue
         return res
-    raise Exception("timed out while waiting for %s" % func) from last_exception
+    raise Exception(f"timed out while waiting for {func}") from last_exception

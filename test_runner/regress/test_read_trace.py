@@ -25,7 +25,7 @@ def test_read_request_tracing(neon_env_builder: NeonEnvBuilder):
     with closing(pg.connect()) as conn:
         with conn.cursor() as cur:
             cur.execute("create table t (i integer);")
-            cur.execute(f"insert into t values (generate_series(1,{10000}));")
+            cur.execute('insert into t values (generate_series(1,10000));')
             cur.execute("select count(*) from t;")
             tenant_id = TenantId(pg.safe_psql("show neon.tenant_id")[0][0])
             timeline_id = TimelineId(pg.safe_psql("show neon.timeline_id")[0][0])

@@ -145,15 +145,7 @@ def test_metric_collection(
     def get_num_remote_ops(file_kind: str, op_kind: str) -> int:
         ps_metrics = parse_metrics(env.pageserver.http_client().get_metrics(), "pageserver")
         total = 0.0
-        for sample in ps_metrics.query_all(
-            name="pageserver_remote_operation_seconds_count",
-            filter={
-                "tenant_id": str(tenant_id),
-                "timeline_id": str(timeline_id),
-                "file_kind": str(file_kind),
-                "op_kind": str(op_kind),
-            },
-        ):
+        for sample in ps_metrics.query_all(name="pageserver_remote_operation_seconds_count", filter={"tenant_id": str(tenant_id), "timeline_id": str(timeline_id), "file_kind": file_kind, "op_kind": op_kind}):
             total += sample[2]
         return int(total)
 

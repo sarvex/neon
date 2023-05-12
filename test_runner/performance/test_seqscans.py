@@ -35,7 +35,7 @@ from pytest_lazyfixture import lazy_fixture  # type: ignore
     ],
 )
 def test_seqscans(env: PgCompare, scale: int, rows: int, iters: int, workers: int):
-    rows = scale * rows
+    rows *= scale
 
     with closing(env.pg.connect(options="-cstatement_timeout=0")) as conn:
         with conn.cursor() as cur:
@@ -61,5 +61,5 @@ def test_seqscans(env: PgCompare, scale: int, rows: int, iters: int, workers: in
             cur.execute(f"set max_parallel_workers_per_gather = {workers}")
 
             with env.record_duration("run"):
-                for i in range(iters):
+                for _ in range(iters):
                     cur.execute("select count(*) from t;")

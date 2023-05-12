@@ -54,9 +54,9 @@ async def gc(env: NeonEnv, timeline: TimelineId):
 
 # At the same time, run UPDATEs and GC
 async def update_and_gc(env: NeonEnv, pg: Postgres, timeline: TimelineId):
-    workers = []
-    for worker_id in range(num_connections):
-        workers.append(asyncio.create_task(update_table(pg)))
+    workers = [
+        asyncio.create_task(update_table(pg)) for _ in range(num_connections)
+    ]
     workers.append(asyncio.create_task(gc(env, timeline)))
 
     # await all workers
@@ -136,15 +136,7 @@ def test_gc_index_upload(neon_env_builder: NeonEnvBuilder, remote_storage_kind: 
     def get_num_remote_ops(file_kind: str, op_kind: str) -> int:
         ps_metrics = parse_metrics(env.pageserver.http_client().get_metrics(), "pageserver")
         total = 0.0
-        for sample in ps_metrics.query_all(
-            name="pageserver_remote_operation_seconds_count",
-            filter={
-                "tenant_id": str(tenant_id),
-                "timeline_id": str(timeline_id),
-                "file_kind": str(file_kind),
-                "op_kind": str(op_kind),
-            },
-        ):
+        for sample in ps_metrics.query_all(name="pageserver_remote_operation_seconds_count", filter={"tenant_id": str(tenant_id), "timeline_id": str(timeline_id), "file_kind": file_kind, "op_kind": op_kind}):
             total += sample[2]
         return int(total)
 

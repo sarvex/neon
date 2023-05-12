@@ -23,9 +23,7 @@ def get_num_downloaded_layers(client, tenant_id, timeline_id):
     value = client.get_metric_value(
         f'pageserver_remote_operation_seconds_count{{file_kind="layer",op_kind="download",status="success",tenant_id="{tenant_id}",timeline_id="{timeline_id}"}}'
     )
-    if value is None:
-        return 0
-    return int(value)
+    return 0 if value is None else int(value)
 
 
 #

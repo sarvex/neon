@@ -677,7 +677,7 @@ class ProposerPostgres(PgProtocol):
 
         log.info(f"postgres --sync-safekeepers output: {basepath}")
 
-        stdout_filename = basepath + ".stdout"
+        stdout_filename = f"{basepath}.stdout"
 
         with open(stdout_filename, "r") as stdout_f:
             stdout = stdout_f.read()
@@ -843,9 +843,9 @@ class SafekeeperEnv:
 
         # Create config and a Safekeeper object for each safekeeper
         self.safekeepers = []
-        for i in range(1, self.num_safekeepers + 1):
-            self.safekeepers.append(self.start_safekeeper(i))
-
+        self.safekeepers.extend(
+            self.start_safekeeper(i) for i in range(1, self.num_safekeepers + 1)
+        )
         # Create and start postgres
         self.postgres = self.create_postgres()
         self.postgres.start()
@@ -881,10 +881,12 @@ class SafekeeperEnv:
             auth_token=None,
         )
         try:
-            safekeeper_process = start_in_background(
-                cmd, safekeeper_dir, "safekeeper.log", safekeeper_client.check_status
+            return start_in_background(
+                cmd,
+                safekeeper_dir,
+                "safekeeper.log",
+                safekeeper_client.check_status,
             )
-            return safekeeper_process
         except Exception as e:
             log.error(e)
             safekeeper_process.kill()

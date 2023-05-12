@@ -26,7 +26,7 @@ def test_broken_timeline(neon_env_builder: NeonEnvBuilder):
 
     tenant_timelines: List[Tuple[TenantId, TimelineId, Postgres]] = []
 
-    for n in range(4):
+    for _ in range(4):
         tenant_id, timeline_id = env.neon_cli.create_tenant()
 
         pg = env.postgres.create_start("main", tenant_id=tenant_id)
@@ -45,9 +45,8 @@ def test_broken_timeline(neon_env_builder: NeonEnvBuilder):
 
     (tenant1, timeline1, pg1) = tenant_timelines[1]
     metadata_path = f"{env.repo_dir}/tenants/{tenant1}/timelines/{timeline1}/metadata"
-    f = open(metadata_path, "w")
-    f.write("overwritten with garbage!")
-    f.close()
+    with open(metadata_path, "w") as f:
+        f.write("overwritten with garbage!")
     log.info(f"Timeline {tenant1}/{timeline1} got its metadata spoiled")
 
     (tenant2, timeline2, pg2) = tenant_timelines[2]
@@ -64,10 +63,8 @@ def test_broken_timeline(neon_env_builder: NeonEnvBuilder):
     timeline_path = f"{env.repo_dir}/tenants/{tenant3}/timelines/{timeline3}/"
     for filename in os.listdir(timeline_path):
         if filename.startswith("00000"):
-            # Looks like a layer file. Corrupt it
-            f = open(f"{timeline_path}/{filename}", "w")
-            f.write("overwritten with garbage!")
-            f.close()
+            with open(f"{timeline_path}/{filename}", "w") as f:
+                f.write("overwritten with garbage!")
     log.info(f"Timeline {tenant3}/{timeline3} got its layer files spoiled")
 
     env.pageserver.start()
@@ -137,7 +134,7 @@ def test_timeline_init_break_before_checkpoint(neon_simple_env: NeonEnv):
 
     timelines_dir = env.repo_dir / "tenants" / str(tenant_id) / "timelines"
     old_tenant_timelines = env.neon_cli.list_timelines(tenant_id)
-    initial_timeline_dirs = [d for d in timelines_dir.iterdir()]
+    initial_timeline_dirs = list(timelines_dir.iterdir())
 
     # Introduce failpoint during timeline init (some intermediate files are on disk), before it's checkpointed.
     pageserver_http.configure_failpoints(("before-checkpoint-new-timeline", "return"))
@@ -154,7 +151,7 @@ def test_timeline_init_break_before_checkpoint(neon_simple_env: NeonEnv):
         new_tenant_timelines == old_tenant_timelines
     ), f"Pageserver after restart should ignore non-initialized timelines for tenant {tenant_id}"
 
-    timeline_dirs = [d for d in timelines_dir.iterdir()]
+    timeline_dirs = list(timelines_dir.iterdir())
     assert (
         timeline_dirs == initial_timeline_dirs
     ), "pageserver should clean its temp timeline files on timeline creation failure"
@@ -168,7 +165,7 @@ def test_timeline_create_break_after_uninit_mark(neon_simple_env: NeonEnv):
 
     timelines_dir = env.repo_dir / "tenants" / str(tenant_id) / "timelines"
     old_tenant_timelines = env.neon_cli.list_timelines(tenant_id)
-    initial_timeline_dirs = [d for d in timelines_dir.iterdir()]
+    initial_timeline_dirs = list(timelines_dir.iterdir())
 
     # Introduce failpoint when creating a new timeline uninit mark, before any other files were created
     pageserver_http.configure_failpoints(("after-timeline-uninit-mark-creation", "return"))
@@ -182,7 +179,7 @@ def test_timeline_create_break_after_uninit_mark(neon_simple_env: NeonEnv):
         new_tenant_timelines == old_tenant_timelines
     ), f"Pageserver after restart should ignore non-initialized timelines for tenant {tenant_id}"
 
-    timeline_dirs = [d for d in timelines_dir.iterdir()]
+    timeline_dirs = list(timelines_dir.iterdir())
     assert (
         timeline_dirs == initial_timeline_dirs
     ), "pageserver should clean its temp timeline files on timeline creation failure"

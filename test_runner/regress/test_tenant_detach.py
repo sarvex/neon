@@ -141,7 +141,7 @@ async def reattach_while_busy(
     env: NeonEnv, pg: Postgres, pageserver_http: PageserverHttpClient, tenant_id: TenantId
 ):
     workers = []
-    for worker_id in range(num_connections):
+    for _ in range(num_connections):
         pg_conn = await pg.connect_async()
         workers.append(asyncio.create_task(update_table(pg_conn)))
 
@@ -401,12 +401,12 @@ def test_ignored_tenant_reattach(
         timeline["timeline_id"]
         for timeline in pageserver_http.timeline_list(tenant_id=ignored_tenant_id)
     ]
-    files_before_ignore = [tenant_path for tenant_path in tenant_dir.glob("**/*")]
+    files_before_ignore = list(tenant_dir.glob("**/*"))
 
     # ignore the tenant and veirfy it's not present in pageserver replies, with its files still on disk
     pageserver_http.tenant_ignore(ignored_tenant_id)
 
-    files_after_ignore_with_retain = [tenant_path for tenant_path in tenant_dir.glob("**/*")]
+    files_after_ignore_with_retain = list(tenant_dir.glob("**/*"))
     new_files = set(files_after_ignore_with_retain) - set(files_before_ignore)
     disappeared_files = set(files_before_ignore) - set(files_after_ignore_with_retain)
     assert (

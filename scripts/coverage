@@ -48,12 +48,7 @@ def intersperse(sep: Any, iterable: Iterable[Any]) -> Iterator[Any]:
 def find_demangler(demangler: Optional[Path] = None) -> Path:
     known_tools = ['c++filt', 'rustfilt', 'llvm-cxxfilt']
 
-    if demangler:
-        # Explicit argument has precedence over `known_tools`
-        demanglers = [demangler]
-    else:
-        demanglers = [Path(x) for x in known_tools]
-
+    demanglers = [demangler] if demangler else [Path(x) for x in known_tools]
     for exe in demanglers:
         if shutil.which(exe):
             return exe
@@ -97,8 +92,7 @@ class Cargo:
 
         for line in output.splitlines(keepends=False):
             meta = json.loads(line)
-            exe = meta.get('executable')
-            if exe:
+            if exe := meta.get('executable'):
                 executables.append(exe)
 
         # Metadata contains crate names, which can be used
@@ -297,13 +291,12 @@ class HtmlReport(Report):
         print(f'HTML report is located at `{self.output_dir}`')
 
     def open(self) -> None:
-        tool = dict(linux='xdg-open', darwin='open').get(sys.platform)
-        if not tool:
+        if tool := dict(linux='xdg-open', darwin='open').get(sys.platform):
+            subprocess.check_call([tool, self.output_dir / 'index.html'],
+                                  stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.DEVNULL)
+        else:
             raise Exception(f'Unknown platform {sys.platform}')
-
-        subprocess.check_call([tool, self.output_dir / 'index.html'],
-                              stdout=subprocess.DEVNULL,
-                              stderr=subprocess.DEVNULL)
 
 
 @dataclass
@@ -576,8 +569,7 @@ self-contained example:
         'clean': state.do_clean,
     }
 
-    handler = handlers.get(args.subparser_name)
-    if handler:
+    if handler := handlers.get(args.subparser_name):
         handler(args)
     else:
         parser.print_help()

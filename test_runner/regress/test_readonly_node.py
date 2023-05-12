@@ -34,7 +34,7 @@ def test_readonly_node(neon_simple_env: NeonEnv):
     )
     main_cur.execute("SELECT pg_current_wal_insert_lsn()")
     lsn_a = query_scalar(main_cur, "SELECT pg_current_wal_insert_lsn()")
-    log.info("LSN after 100 rows: " + lsn_a)
+    log.info(f"LSN after 100 rows: {lsn_a}")
 
     # Insert some more rows. (This generates enough WAL to fill a few segments.)
     main_cur.execute(
@@ -45,7 +45,7 @@ def test_readonly_node(neon_simple_env: NeonEnv):
     """
     )
     lsn_b = query_scalar(main_cur, "SELECT pg_current_wal_insert_lsn()")
-    log.info("LSN after 200100 rows: " + lsn_b)
+    log.info(f"LSN after 200100 rows: {lsn_b}")
 
     # Insert many more rows. This generates enough WAL to fill a few segments.
     main_cur.execute(
@@ -57,7 +57,7 @@ def test_readonly_node(neon_simple_env: NeonEnv):
     )
 
     lsn_c = query_scalar(main_cur, "SELECT pg_current_wal_insert_lsn()")
-    log.info("LSN after 400100 rows: " + lsn_c)
+    log.info(f"LSN after 400100 rows: {lsn_c}")
 
     # Create first read-only node at the point where only 100 rows were inserted
     pg_hundred = env.postgres.create_start(
@@ -117,8 +117,6 @@ def test_timetravel(neon_simple_env: NeonEnv):
     tenant_id = pg.safe_psql("show neon.tenant_id")[0][0]
     timeline_id = pg.safe_psql("show neon.timeline_id")[0][0]
 
-    lsns = []
-
     with pg.cursor() as cur:
         cur.execute(
             """
@@ -127,8 +125,7 @@ def test_timetravel(neon_simple_env: NeonEnv):
         """
         )
         current_lsn = Lsn(query_scalar(cur, "SELECT pg_current_wal_flush_lsn()"))
-    lsns.append((0, current_lsn))
-
+    lsns = [(0, current_lsn)]
     for i in range(1, 5):
         with pg.cursor() as cur:
             cur.execute(f"UPDATE testtab SET iteration = {i}")

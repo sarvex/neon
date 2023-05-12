@@ -298,7 +298,7 @@ def test_single_branch_get_tenant_size_grows(neon_env_builder: NeonEnvBuilder):
 
             size = http_client.tenant_size(tenant_id)
 
-            if len(collected_responses) > 0:
+            if collected_responses:
                 prev = collected_responses[-1][1]
                 if size == 0:
                     assert prev == 0

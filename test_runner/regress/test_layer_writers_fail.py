@@ -37,12 +37,12 @@ def test_image_layer_writer_fail_before_finish(neon_simple_env: NeonEnv):
     new_temp_layer_files = list(
         filter(
             lambda file: str(file).endswith(NeonPageserver.TEMP_FILE_SUFFIX),
-            [path for path in env.timeline_dir(tenant_id, timeline_id).iterdir()],
+            list(env.timeline_dir(tenant_id, timeline_id).iterdir()),
         )
     )
 
     assert (
-        len(new_temp_layer_files) == 0
+        not new_temp_layer_files
     ), "pageserver should clean its temporary new image layer files on failure"
 
 
@@ -83,10 +83,10 @@ def test_delta_layer_writer_fail_before_finish(neon_simple_env: NeonEnv):
     new_temp_layer_files = list(
         filter(
             lambda file: str(file).endswith(NeonPageserver.TEMP_FILE_SUFFIX),
-            [path for path in env.timeline_dir(tenant_id, timeline_id).iterdir()],
+            list(env.timeline_dir(tenant_id, timeline_id).iterdir()),
         )
     )
 
     assert (
-        len(new_temp_layer_files) == 0
+        not new_temp_layer_files
     ), "pageserver should clean its temporary new delta layer files on failure"

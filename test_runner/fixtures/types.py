@@ -67,14 +67,10 @@ class Id:
         return self.id.hex()
 
     def __lt__(self, other) -> bool:
-        if not isinstance(other, type(self)):
-            return NotImplemented
-        return self.id < other.id
+        return self.id < other.id if isinstance(other, type(self)) else NotImplemented
 
     def __eq__(self, other) -> bool:
-        if not isinstance(other, type(self)):
-            return NotImplemented
-        return self.id == other.id
+        return self.id == other.id if isinstance(other, type(self)) else NotImplemented
 
     def __hash__(self) -> int:
         return hash(str(self.id))

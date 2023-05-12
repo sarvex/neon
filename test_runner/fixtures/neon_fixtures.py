@@ -168,9 +168,8 @@ def versioned_pg_distrib_dir(pg_distrib_dir: Path, pg_version: str) -> Iterator[
         # When testing against a remote server, we only need the client binary.
         if not psql_bin_path.exists():
             raise Exception(f"psql not found at '{psql_bin_path}'")
-    else:
-        if not postgres_bin_path.exists():
-            raise Exception(f"postgres not found at '{postgres_bin_path}'")
+    elif not postgres_bin_path.exists():
+        raise Exception(f"postgres not found at '{postgres_bin_path}'")
 
     log.info(f"versioned_pg_distrib_dir is {versioned_dir}")
     yield versioned_dir
@@ -826,31 +825,32 @@ class NeonEnvBuilder:
         traceback: Optional[TracebackType],
     ):
         # Stop all the nodes.
-        if self.env:
-            log.info("Cleaning up all storage and compute nodes")
-            self.env.postgres.stop_all()
-            for sk in self.env.safekeepers:
-                sk.stop(immediate=True)
-            self.env.pageserver.stop(immediate=True)
+        if not self.env:
+            return
+        log.info("Cleaning up all storage and compute nodes")
+        self.env.postgres.stop_all()
+        for sk in self.env.safekeepers:
+            sk.stop(immediate=True)
+        self.env.pageserver.stop(immediate=True)
 
-            cleanup_error = None
-            try:
-                self.cleanup_remote_storage()
-            except Exception as e:
-                log.error(f"Error during remote storage cleanup: {e}")
+        cleanup_error = None
+        try:
+            self.cleanup_remote_storage()
+        except Exception as e:
+            log.error(f"Error during remote storage cleanup: {e}")
+            cleanup_error = e
+
+        try:
+            self.cleanup_local_storage()
+        except Exception as e:
+            log.error(f"Error during local storage cleanup: {e}")
+            if cleanup_error is not None:
                 cleanup_error = e
 
-            try:
-                self.cleanup_local_storage()
-            except Exception as e:
-                log.error(f"Error during local storage cleanup: {e}")
-                if cleanup_error is not None:
-                    cleanup_error = e
+        if cleanup_error is not None:
+            raise cleanup_error
 
-            if cleanup_error is not None:
-                raise cleanup_error
-
-            self.env.pageserver.assert_no_errors()
+        self.env.pageserver.assert_no_errors()
 
 
 class NeonEnv:
@@ -1338,8 +1338,7 @@ class PageserverHttpClient(requests.Session):
             f"http://localhost:{self.port}/v1/tenant/{tenant_id}/timeline/{timeline_id}/get_lsn_by_timestamp?timestamp={timestamp}",
         )
         self.verbose_error(res)
-        res_json = res.json()
-        return res_json
+        return res.json()
 
     def timeline_checkpoint(self, tenant_id: TenantId, timeline_id: TimelineId):
         self.is_testing_enabled_or_skip()
@@ -1450,8 +1449,8 @@ class PageserverHttpClient(requests.Session):
             filter={
                 "tenant_id": str(tenant_id),
                 "timeline_id": str(timeline_id),
-                "file_kind": str(file_kind),
-                "op_kind": str(op_kind),
+                "file_kind": file_kind,
+                "op_kind": op_kind,
             },
         )
         if len(matches) == 0:
@@ -1466,7 +1465,7 @@ class PageserverHttpClient(requests.Session):
     def get_metric_value(self, name: str) -> Optional[str]:
         metrics = self.get_metrics()
         relevant = [line for line in metrics.splitlines() if line.startswith(name)]
-        if len(relevant) == 0:
+        if not relevant:
             log.info(f'could not find metric "{name}"')
             return None
         assert len(relevant) == 1
@@ -1526,7 +1525,7 @@ class AbstractNeonCli(abc.ABC):
         bin_neon = str(self.env.neon_binpath / self.COMMAND)
 
         args = [bin_neon] + arguments
-        log.info('Running command "{}"'.format(" ".join(args)))
+        log.info(f'Running command "{" ".join(args)}"')
         log.info(f'Running in "{self.env.repo_dir}"')
 
         env_vars = os.environ.copy()
@@ -1539,8 +1538,7 @@ class AbstractNeonCli(abc.ABC):
 
         # Pass coverage settings
         var = "LLVM_PROFILE_FILE"
-        val = os.environ.get(var)
-        if val:
+        if val := os.environ.get(var):
             env_vars[var] = val
 
         # Intercept CalledProcessError and print more info
@@ -1664,10 +1662,7 @@ class NeonCli(AbstractNeonCli):
 
         matches = CREATE_TIMELINE_ID_EXTRACTOR.search(res.stdout)
 
-        created_timeline_id = None
-        if matches is not None:
-            created_timeline_id = matches.group("timeline_id")
-
+        created_timeline_id = None if matches is None else matches.group("timeline_id")
         return TimelineId(str(created_timeline_id))
 
     def create_branch(
@@ -1695,10 +1690,7 @@ class NeonCli(AbstractNeonCli):
 
         matches = CREATE_TIMELINE_ID_EXTRACTOR.search(res.stdout)
 
-        created_timeline_id = None
-        if matches is not None:
-            created_timeline_id = matches.group("timeline_id")
-
+        created_timeline_id = None if matches is None else matches.group("timeline_id")
         if created_timeline_id is None:
             raise Exception("could not find timeline id after `neon timeline create` invocation")
         else:
@@ -1714,13 +1706,15 @@ class NeonCli(AbstractNeonCli):
         res = self.raw_cli(
             ["timeline", "list", "--tenant-id", str(tenant_id or self.env.initial_tenant)]
         )
-        timelines_cli = sorted(
+        return sorted(
             map(
-                lambda branch_and_id: (branch_and_id[0], TimelineId(branch_and_id[1])),
+                lambda branch_and_id: (
+                    branch_and_id[0],
+                    TimelineId(branch_and_id[1]),
+                ),
                 TIMELINE_DATA_EXTRACTOR.findall(res.stdout),
             )
         )
-        return timelines_cli
 
     def init(
         self,
@@ -2610,7 +2604,7 @@ class Postgres(PgProtocol):
                     continue
                 f.write(cfg_line)
             f.write("synchronous_standby_names = 'walproposer'\n")
-            f.write("neon.safekeepers = '{}'\n".format(safekeepers))
+            f.write(f"neon.safekeepers = '{safekeepers}'\n")
         return self
 
     def config(self, lines: List[str]) -> "Postgres":
@@ -2796,7 +2790,7 @@ class Safekeeper:
         return self
 
     def stop(self, immediate: bool = False) -> "Safekeeper":
-        log.info("Stopping safekeeper {}".format(self.id))
+        log.info(f"Stopping safekeeper {self.id}")
         self.env.neon_cli.safekeeper_stop(self.id, immediate)
         self.running = False
         return self
@@ -2821,7 +2815,7 @@ class Safekeeper:
             with conn.cursor() as cur:
                 request_json = json.dumps(request)
                 log.info(f"JSON_CTRL request on port {self.port.pg}: {request_json}")
-                cur.execute("JSON_CTRL " + request_json)
+                cur.execute(f"JSON_CTRL {request_json}")
                 all = cur.fetchall()
                 log.info(f"JSON_CTRL response: {all[0][0]}")
                 res = json.loads(all[0][0])
@@ -3178,13 +3172,13 @@ def check_restored_datadir_content(
 
         f1 = os.path.join(pg.pgdata_dir, f)
         f2 = os.path.join(restored_dir_path, f)
-        stdout_filename = "{}.filediff".format(f2)
+        stdout_filename = f"{f2}.filediff"
 
         with open(stdout_filename, "w") as stdout_f:
-            subprocess.run("xxd -b {} > {}.hex ".format(f1, f1), shell=True)
-            subprocess.run("xxd -b {} > {}.hex ".format(f2, f2), shell=True)
+            subprocess.run(f"xxd -b {f1} > {f1}.hex ", shell=True)
+            subprocess.run(f"xxd -b {f2} > {f2}.hex ", shell=True)
 
-            cmd = "diff {}.hex {}.hex".format(f1, f2)
+            cmd = f"diff {f1}.hex {f2}.hex"
             subprocess.run([cmd], stdout=stdout_f, shell=True)
 
     assert (mismatch, error) == ([], [])
@@ -3205,7 +3199,7 @@ def wait_until(number_of_iterations: int, interval: float, func):
             time.sleep(interval)
             continue
         return res
-    raise Exception("timed out while waiting for %s" % func) from last_exception
+    raise Exception(f"timed out while waiting for {func}") from last_exception
 
 
 def wait_while(number_of_iterations: int, interval: float, func):
@@ -3221,7 +3215,7 @@ def wait_while(number_of_iterations: int, interval: float, func):
             continue
         except Exception:
             return
-    raise Exception("timed out while waiting for %s" % func)
+    raise Exception(f"timed out while waiting for {func}")
 
 
 def assert_tenant_status(
@@ -3236,9 +3230,7 @@ def tenant_exists(ps_http: PageserverHttpClient, tenant_id: TenantId):
     tenants = ps_http.tenant_list()
     matching = [t for t in tenants if TenantId(t["id"]) == tenant_id]
     assert len(matching) < 2
-    if len(matching) == 0:
-        return None
-    return matching[0]
+    return None if not matching else matching[0]
 
 
 def remote_consistent_lsn(
@@ -3251,10 +3243,9 @@ def remote_consistent_lsn(
         # a timeline, before any part of it has been uploaded to remote
         # storage yet.
         return Lsn(0)
-    else:
-        lsn_str = detail["remote_consistent_lsn"]
-        assert isinstance(lsn_str, str)
-        return Lsn(lsn_str)
+    lsn_str = detail["remote_consistent_lsn"]
+    assert isinstance(lsn_str, str)
+    return Lsn(lsn_str)
 
 
 def wait_for_upload(
@@ -3270,15 +3261,11 @@ def wait_for_upload(
             log.info("wait finished")
             return
         log.info(
-            "waiting for remote_consistent_lsn to reach {}, now {}, iteration {}".format(
-                lsn, current_lsn, i + 1
-            )
+            f"waiting for remote_consistent_lsn to reach {lsn}, now {current_lsn}, iteration {i + 1}"
         )
         time.sleep(1)
     raise Exception(
-        "timed out while waiting for remote_consistent_lsn to reach {}, was {}".format(
-            lsn, current_lsn
-        )
+        f"timed out while waiting for remote_consistent_lsn to reach {lsn}, was {current_lsn}"
     )
 
 
@@ -3325,13 +3312,11 @@ def wait_for_last_record_lsn(
         if current_lsn >= lsn:
             return current_lsn
         log.info(
-            "waiting for last_record_lsn to reach {}, now {}, iteration {}".format(
-                lsn, current_lsn, i + 1
-            )
+            f"waiting for last_record_lsn to reach {lsn}, now {current_lsn}, iteration {i + 1}"
         )
         time.sleep(1)
     raise Exception(
-        "timed out while waiting for last_record_lsn to reach {}, was {}".format(lsn, current_lsn)
+        f"timed out while waiting for last_record_lsn to reach {lsn}, was {current_lsn}"
     )
 
 

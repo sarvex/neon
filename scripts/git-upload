@@ -158,8 +158,7 @@ def main():
         'copy': do_copy,
     }
 
-    action = commands.get(args.subparser_name)
-    if action:
+    if action := commands.get(args.subparser_name):
         message = args.message or 'update'
         GitRepo(args.repo, args.branch).update(message, lambda: action(args))
     else:

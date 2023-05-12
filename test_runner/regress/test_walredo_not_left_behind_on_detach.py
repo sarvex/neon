@@ -88,11 +88,10 @@ def test_walredo_not_left_behind_on_detach(neon_env_builder: NeonEnvBuilder):
             pageserver_http.tenant_detach(tenant_id)
         except Exception as e:
             last_error = e
-            log.error(f"try {i} error detaching tenant: {e}")
+            log.error(f"try {i} error detaching tenant: {last_error}")
             continue
         else:
             break
-    # else is called if the loop finished without reaching "break"
     else:
         pytest.fail(f"could not detach tenant: {last_error}")
 

@@ -471,7 +471,7 @@ def test_timeline_size_metrics(
         re.MULTILINE,
     )
     assert matches
-    tl_physical_size_metric = int(matches.group(1))
+    tl_physical_size_metric = int(matches[1])
 
     # assert that the physical size metric matches the actual physical size on disk
     timeline_path = env.timeline_dir(env.initial_tenant, new_timeline_id)
@@ -484,7 +484,7 @@ def test_timeline_size_metrics(
         re.MULTILINE,
     )
     assert matches
-    tl_logical_size_metric = int(matches.group(1))
+    tl_logical_size_metric = int(matches[1])
 
     pgdatadir = test_output_dir / "pgdata-vanilla"
     pg_bin = PgBin(test_output_dir, pg_distrib_dir, pg_version)
@@ -556,7 +556,8 @@ def test_tenant_physical_size(neon_simple_env: NeonEnv):
         client.tenant_status(tenant_id=tenant)["current_physical_size"]
     )
     assert tenant_current_physical_size == sum(
-        [tl["current_physical_size"] for tl in client.timeline_list(tenant_id=tenant)]
+        tl["current_physical_size"]
+        for tl in client.timeline_list(tenant_id=tenant)
     )
     # since we don't do layer eviction, current_physical_size is identical to resident physical size
     assert timeline_total_resident_physical_size == tenant_current_physical_size

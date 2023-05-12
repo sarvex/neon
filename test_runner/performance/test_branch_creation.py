@@ -90,7 +90,6 @@ def test_branch_creation_heavy_write(neon_compare: NeonCompare, n_branches: int)
 
 
 @pytest.mark.parametrize("n_branches", [1024])
-# Test measures the latency of branch creation when creating a lot of branches.
 def test_branch_creation_many(neon_compare: NeonCompare, n_branches: int):
     env = neon_compare.env
 
@@ -105,7 +104,7 @@ def test_branch_creation_many(neon_compare: NeonCompare, n_branches: int):
         # random a source branch
         p = random.randint(0, i)
         timer = timeit.default_timer()
-        env.neon_cli.create_branch("b{}".format(i + 1), "b{}".format(p))
+        env.neon_cli.create_branch(f"b{i + 1}", f"b{p}")
         dur = timeit.default_timer() - timer
         branch_creation_durations.append(dur)
 

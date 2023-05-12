@@ -376,7 +376,7 @@ class NeonBenchmarker:
         all_metrics = pageserver.http_client().get_metrics()
         matches = re.search(rf"^{metric_name} (\S+)$", all_metrics, re.MULTILINE)
         assert matches, f"metric {metric_name} not found"
-        return int(round(float(matches.group(1))))
+        return int(round(float(matches[1])))
 
     def get_timeline_size(
         self, repo_dir: Path, tenant_id: TenantId, timeline_id: TimelineId
@@ -418,8 +418,7 @@ def zenbenchmark(record_property: Callable[[str, object], None]) -> Iterator[Neo
     This is a python decorator for benchmark fixtures. It contains functions for
     recording measurements, and prints them out at the end.
     """
-    benchmarker = NeonBenchmarker(record_property)
-    yield benchmarker
+    yield NeonBenchmarker(record_property)
 
 
 def pytest_addoption(parser: Parser):
@@ -461,7 +460,7 @@ def pytest_terminal_summary(
 
         for _, recorded_property in test_report.user_properties:
             terminalreporter.write(
-                "{}.{}: ".format(test_report.head_line, recorded_property["name"])
+                f'{test_report.head_line}.{recorded_property["name"]}: '
             )
             unit = recorded_property["unit"]
             value = recorded_property["value"]
@@ -473,7 +472,7 @@ def pytest_terminal_summary(
                 terminalreporter.write("{0:,.4f}".format(value), green=True)
             else:
                 terminalreporter.write(str(value), green=True)
-            terminalreporter.line(" {}".format(unit))
+            terminalreporter.line(f" {unit}")
 
             result_entry.append(recorded_property)
 

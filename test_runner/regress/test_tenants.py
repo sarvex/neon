@@ -27,7 +27,7 @@ def test_tenant_creation_fails(neon_simple_env: NeonEnv):
     initial_tenants = sorted(
         map(lambda t: t.split()[0], neon_simple_env.neon_cli.list_tenants().stdout.splitlines())
     )
-    initial_tenant_dirs = [d for d in tenants_dir.iterdir()]
+    initial_tenant_dirs = list(tenants_dir.iterdir())
 
     neon_simple_env.pageserver.allowed_errors.extend(
         [
@@ -46,7 +46,7 @@ def test_tenant_creation_fails(neon_simple_env: NeonEnv):
     )
     assert initial_tenants == new_tenants, "should not create new tenants"
 
-    new_tenant_dirs = [d for d in tenants_dir.iterdir()]
+    new_tenant_dirs = list(tenants_dir.iterdir())
     assert (
         new_tenant_dirs == initial_tenant_dirs
     ), "pageserver should clean its temp tenant dirs on tenant creation failure"
@@ -207,7 +207,7 @@ def test_pageserver_metrics_removed_after_detach(
         return samples
 
     for tenant in [tenant_1, tenant_2]:
-        pre_detach_samples = set([x.name for x in get_ps_metric_samples_for_tenant(tenant)])
+        pre_detach_samples = {x.name for x in get_ps_metric_samples_for_tenant(tenant)}
         expected = set(PAGESERVER_PER_TENANT_METRICS)
         if remote_storage_kind == RemoteStorageKind.NOOP:
             # if there's no remote storage configured, we don't expose the remote timeline client metrics
@@ -216,8 +216,10 @@ def test_pageserver_metrics_removed_after_detach(
 
         env.pageserver.http_client().tenant_detach(tenant)
 
-        post_detach_samples = set([x.name for x in get_ps_metric_samples_for_tenant(tenant)])
-        assert post_detach_samples == set()
+        post_detach_samples = {
+            x.name for x in get_ps_metric_samples_for_tenant(tenant)
+        }
+        assert not post_detach_samples
 
 
 # Check that empty tenants work with or without the remote storage

@@ -431,9 +431,7 @@ def test_remote_timeline_client_calls_started_metric(
             file_kind,
             op_kind,
         )
-        if val is None:
-            return val
-        return int(val)
+        return val if val is None else int(val)
 
     def wait_upload_queue_empty():
         wait_until(2, 1, lambda: get_queued_count(file_kind="layer", op_kind="upload") == 0)

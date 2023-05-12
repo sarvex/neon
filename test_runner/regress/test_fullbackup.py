@@ -46,7 +46,7 @@ def test_fullbackup(
     query = f"fullbackup {env.initial_tenant} {timeline} {lsn}"
     cmd = ["psql", "--no-psqlrc", env.pageserver.connstr(), "-c", query]
     result_basepath = pg_bin.run_capture(cmd, env=psql_env)
-    tar_output_file = result_basepath + ".stdout"
+    tar_output_file = f"{result_basepath}.stdout"
     subprocess_capture(env.repo_dir, ["tar", "-xf", tar_output_file, "-C", str(restored_dir_path)])
 
     # HACK

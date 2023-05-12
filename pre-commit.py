@@ -22,9 +22,7 @@ def colorify(
     color: Color,
     no_color: bool = False,
 ):
-    if no_color:
-        return s
-    return f"{color.value}{s}{NC}"
+    return s if no_color else f"{color.value}{s}{NC}"
 
 
 def rustfmt(fix_inplace: bool = False, no_color: bool = False) -> str:

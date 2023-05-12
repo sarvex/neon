@@ -64,14 +64,14 @@ def subprocess_capture(capture_dir: str, cmd: List[str], **kwargs: Any) -> str:
     Returns basepath for files with captured output.
     """
     assert type(cmd) is list
-    base = os.path.basename(cmd[0]) + "_{}".format(global_counter())
+    base = f"{os.path.basename(cmd[0])}_{global_counter()}"
     basepath = os.path.join(capture_dir, base)
-    stdout_filename = basepath + ".stdout"
-    stderr_filename = basepath + ".stderr"
+    stdout_filename = f"{basepath}.stdout"
+    stderr_filename = f"{basepath}.stderr"
 
     with open(stdout_filename, "w") as stdout_f:
         with open(stderr_filename, "w") as stderr_f:
-            print('(capturing output to "{}.stdout")'.format(base))
+            print(f'(capturing output to "{base}.stdout")')
             subprocess.run(cmd, **kwargs, stdout=stdout_f, stderr=stderr_f)
 
     return basepath
@@ -82,10 +82,10 @@ class PgBin:
 
     def __init__(self, log_dir: Path, pg_distrib_dir, pg_version):
         self.log_dir = log_dir
-        self.pg_bin_path = os.path.join(str(pg_distrib_dir), "v{}".format(pg_version), "bin")
+        self.pg_bin_path = os.path.join(str(pg_distrib_dir), f"v{pg_version}", "bin")
         self.env = os.environ.copy()
         self.env["LD_LIBRARY_PATH"] = os.path.join(
-            str(pg_distrib_dir), "v{}".format(pg_version), "lib"
+            str(pg_distrib_dir), f"v{pg_version}", "lib"
         )
 
     def _fixpath(self, command: List[str]):
@@ -110,7 +110,7 @@ class PgBin:
         """
 
         self._fixpath(command)
-        print('Running command "{}"'.format(" ".join(command)))
+        print(f'Running command "{" ".join(command)}"')
         env = self._build_env(env)
         subprocess.run(command, env=env, cwd=cwd, check=True)
 
@@ -128,7 +128,7 @@ class PgBin:
         """
 
         self._fixpath(command)
-        print('Running command "{}"'.format(" ".join(command)))
+        print(f'Running command "{" ".join(command)}"')
         env = self._build_env(env)
         return subprocess_capture(
             str(self.log_dir), command, env=env, cwd=cwd, check=True, **kwargs
@@ -334,16 +334,12 @@ def wait_for_upload(
         if current_lsn >= lsn:
             return
         print(
-            "waiting for remote_consistent_lsn to reach {}, now {}, iteration {}".format(
-                lsn_to_hex(lsn), lsn_to_hex(current_lsn), i + 1
-            )
+            f"waiting for remote_consistent_lsn to reach {lsn_to_hex(lsn)}, now {lsn_to_hex(current_lsn)}, iteration {i + 1}"
         )
         time.sleep(1)
 
     raise Exception(
-        "timed out while waiting for remote_consistent_lsn to reach {}, was {}".format(
-            lsn_to_hex(lsn), lsn_to_hex(current_lsn)
-        )
+        f"timed out while waiting for remote_consistent_lsn to reach {lsn_to_hex(lsn)}, was {lsn_to_hex(current_lsn)}"
     )
 
 
@@ -509,7 +505,7 @@ def export_timeline(
     pg_version,
 ):
     # Choose filenames
-    incomplete_filename = tar_filename + ".incomplete"
+    incomplete_filename = f"{tar_filename}.incomplete"
     stderr_filename = os.path.join(args.work_dir, f"{tenant_id}_{timeline_id}.stderr")
 
     # Construct export command
@@ -606,7 +602,7 @@ def main(args: argparse.Namespace):
             )
 
             # Re-export and compare
-            re_export_filename = tar_filename + ".reexport"
+            re_export_filename = f"{tar_filename}.reexport"
             export_timeline(
                 args,
                 psql_path,
